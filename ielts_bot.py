@@ -1,20 +1,23 @@
-import os
-import openai
+ import os
 import random
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, ConversationHandler
+import openai
+from telegram import Update, ReplyKeyboardMarkup
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 
-# Set up your API keys
-openai.api_key = "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"
-telegram_token = "7413264545:AAHjqKfNONUOxbWzI-D5YXqu2N59Kiqe_us"
+# Установите ваши API ключи
+openai.api_key = os.getenv("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")
+telegram_token = os.getenv("7413264545:AAHjqKfNONUOxbWzI-D5YXqu2N59Kiqe_us")
 
-# Define states for conversation handler
-SELECTING_TASK, SELECTING_TOPIC, SUBMITTING_ESSAY, CHECKING_TENSES = range(4)
+# Список тем IELTS
+topics = [
+    "Art", "Business & Money", "Communication & Personality", "Crime & Punishment", "Education",
+    "Environment", "Family & Children", "Food & Diet", "Government", "Health",
+    "Housing, Buildings & Urban Planning", "Language", "Leisure", "Media & Advertising", "Reading",
+    "Society", "Space Exploration", "Sport & Exercise", "Technology", "Tourism and Travel",
+    "Transport", "Work"
+]
 
-# List of possible topics
-topics = []
-
-# Start function to handle the /start command
+# Приветственное сообщение и выбор задания
 def start(update: Update, context: CallbackContext) -> None:
     welcome_message = (
         "Hello! I am your IELTS essay assistant bot. I can help you prepare for the writing part of the IELTS.\n\n"
@@ -24,40 +27,14 @@ def start(update: Update, context: CallbackContext) -> None:
         "3. Practice English tenses"
     )
     keyboard = [
-        [KeyboardButton("Select a topic for an essay")],
-        [KeyboardButton("🎲 Random topic")],
-        [KeyboardButton("Practice English tenses")]
+        ["Select a topic for an essay"],
+        ["🎲 Random topic"],
+        ["Practice English tenses"]
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
     update.message.reply_text(welcome_message, reply_markup=reply_markup)
-    return SELECTING_TASK
 
-# Task selection handler
-def select_task(update: Update, context: CallbackContext) -> int:
-    user_choice = update.message.text
-
-    if user_choice == "Select a topic for an essay":
-        # Generate topics using OpenAI
-        topics = generate_topics()
-        keyboard = [[KeyboardButton(topic)] for topic in topics] + [[KeyboardButton("🎲 Random topic")]]
-        reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
-        update.message.reply_text("Please choose a topic:", reply_markup=reply_markup)
-        return SELECTING_TOPIC
-
-    elif user_choice == "🎲 Random topic":
-        random_topic = random.choice(topics)
-        context.user_data['selected_topic'] = random_topic
-        return topic_selected(update, context)
-
-    elif user_choice == "Practice English tenses":
-        # Handle tenses practice task
-        return practice_tenses(update, context)
-
-    else:
-        update.message.reply_text("Please choose a valid option.")
-        return SELECTING_TASK
-
-# Generate topics using OpenAI API
+# Генерация списка тем с использованием OpenAI
 def generate_topics():
     response = openai.Completion.create(
         engine="text-davinci-003",
@@ -67,60 +44,154 @@ def generate_topics():
     topics = response.choices[0].text.strip().split("\n")
     return topics[:22]
 
-# Handler for when a topic is selected
-def topic_selected(update: Update, context: CallbackContext) -> int:
-    selected_topic = update.message.text
-    context.user_data['selected_topic'] = selected_topic
-    instructions = f"Write an essay on '{selected_topic}'. The minimum length is 250 words."
-    words = generate_words(selected_topic)
-    word_list = "\n".join(f"- {word}" for word in words)
-    response_message = f"{instructions}\n\nUse the following words in your essay:\n{word_list}"
-    update.message.reply_text(response_message)
-    return SUBMITTING_ESSAY
-
-# Generate 10 words related to the selected topic
+# Генерация слов по теме
 def generate_words(topic):
     response = openai.Completion.create(
         engine="text-davinci-003",
-        prompt=f"Generate 10 words to use in an essay on '{topic}'.",
+        prompt=f"Generate 10 academic-level words suitable for an IELTS essay on the topic '{topic}' for students aiming for a band score of 5.5 or higher.",
         max_tokens=50
     )
     words = response.choices[0].text.strip().split("\n")
     return words
 
-# Handler for practicing tenses
-def practice_tenses(update: Update, context: CallbackContext) -> int:
-    task_description = "Please use the following sentence and convert it into three different tenses."
-    tenses_task = generate_tenses_task()
-    update.message.reply_text(f"{task_description}\n\n{tenses_task}")
-    return CHECKING_TENSES
+# Обработка выбора темы
+def handle_topic_selection(update: Update, context: CallbackContext) -> None:
+    topics = generate_topics()
+    keyboard = [[topic] for topic in topics]
+    reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
+    update.message.reply_text("Please choose a topic:", reply_markup=reply_markup)
 
-# Generate a task for practicing tenses
-def generate_tenses_task():
+# Обработка случайной темы
+def handle_random_topic(update: Update, context: CallbackContext) -> None:
+    topics = generate_topics()
+    selected_topic = random.choice(topics)
+    handle_topic_choice(update, context, selected_topic)
+
+# Обработка выбранной темы и выдача слов
+def handle_topic_choice(update: Update, context: CallbackContext, selected_topic):
+    words = generate_words(selected_topic)
+    word_list = "\n".join(f"- {word}" for word in words)
+    response_message = (
+        f"Write an essay on '{selected_topic}'. The minimum length is 250 words.\n\n"
+        "Use the following words in the essay:\n" + word_list
+    )
+    context.user_data["selected_topic"] = selected_topic
+    context.user_data["required_words"] = words
+    update.message.reply_text(response_message)
+
+# Проверка эссе и выдача обратной связи
+def check_essay(essay_text, required_words):
     response = openai.Completion.create(
         engine="text-davinci-003",
-        prompt="Generate a sentence for practicing English tenses.",
-        max_tokens=30
+        prompt=(
+            f"Please review the following IELTS essay for grammar, style, and spelling errors. "
+            f"Check if all required words are used and the essay length is appropriate.\n\n"
+            f"Essay: {essay_text}\n\n"
+            f"Required words: {', '.join(required_words)}"
+        ),
+        max_tokens=500
     )
-    return response.choices[0].text.strip()
+    feedback = response.choices[0].text.strip()
+    return feedback
 
-# Main function to run the bot
+def handle_essay_submission(update: Update, context: CallbackContext) -> None:
+    essay_text = update.message.text
+    required_words = context.user_data.get("required_words", [])
+    feedback = check_essay(essay_text, required_words)
+    provide_feedback(update, context, feedback, len(essay_text.split()), required_words)
+
+# Предоставление обратной связи пользователю
+def provide_feedback(update: Update, context: CallbackContext, feedback, word_count, required_words):
+    missing_words = [word for word in required_words if word not in update.message.text]
+    if word_count < 250:
+        update.message.reply_text(f"Your essay contains less than 250 words. Word count: {word_count}")
+    if missing_words:
+        update.message.reply_text(f"The following words were not used: {', '.join(missing_words)}")
+    update.message.reply_text(f"Here is your feedback:\n\n{feedback}")
+
+# Практика времен английского языка: Выбор задания
+def handle_tenses_practice(update: Update, context: CallbackContext) -> None:
+    keyboard = [
+        ["Convert sentences to another tense"],
+        ["Fill in the blanks with the correct verb form"],
+        ["Create a sentence using a given tense"],
+        ["Choose the correct tense in context"],
+        ["Practice tenses in dialogues"]
+    ]
+    reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
+    update.message.reply_text("Please choose a tenses practice task:", reply_markup=reply_markup)
+
+# Обработка упражнений по временам английского языка
+def handle_tense_task_selection(update: Update, context: CallbackContext) -> None:
+    user_message = update.message.text
+    if user_message == "Convert sentences to another tense":
+        response = openai.Completion.create(
+            engine="text-davinci-003",
+            prompt="Give a sentence and ask to convert it to another tense.",
+            max_tokens=50
+        )
+        task = response.choices[0].text.strip()
+        update.message.reply_text(f"Task: {task}")
+    elif user_message == "Fill in the blanks with the correct verb form":
+        response = openai.Completion.create(
+            engine="text-davinci-003",
+            prompt="Create a sentence with a missing verb and ask to fill it in with the correct tense.",
+            max_tokens=50
+        )
+        task = response.choices[0].text.strip()
+        update.message.reply_text(f"Task: {task}")
+    elif user_message == "Create a sentence using a given tense":
+        response = openai.Completion.create(
+            engine="text-davinci-003",
+            prompt="Ask the user to create a sentence using the present perfect tense.",
+            max_tokens=50
+        )
+        task = response.choices[0].text.strip()
+        update.message.reply_text(f"Task: {task}")
+    elif user_message == "Choose the correct tense in context":
+        response = openai.Completion.create(
+            engine="text-davinci-003",
+            prompt="Provide a sentence with multiple tense options and ask to choose the correct one.",
+            max_tokens=50
+        )
+        task = response.choices[0].text.strip()
+        update.message.reply_text(f"Task: {task}")
+    elif user_message == "Practice tenses in dialogues":
+        response = openai.Completion.create(
+            engine="text-davinci-003",
+            prompt="Create a short dialogue with missing tenses and ask the user to complete it.",
+            max_tokens=50
+        )
+        task = response.choices[0].text.strip()
+        update.message.reply_text(f"Task: {task}")
+    else:
+        update.message.reply_text("Please choose one of the provided options.")
+
+# Обработка всех текстовых сообщений
+def handle_message(update: Update, context: CallbackContext) -> None:
+    user_message = update.message.text
+    if user_message == "Select a topic for an essay":
+        handle_topic_selection(update, context)
+    elif user_message == "🎲 Random topic":
+        handle_random_topic(update, context)
+    elif user_message == "Practice English tenses":
+        handle_tenses_practice(update, context)
+    elif user_message in ["Convert sentences to another tense", "Fill in the blanks with the correct verb form",
+                          "Create a sentence using a given tense", "Choose the correct tense in context",
+                          "Practice tenses in dialogues"]:
+        handle_tense_task_selection(update, context)
+    elif context.user_data.get("selected_topic"):
+        handle_essay_submission(update, context)
+    else:
+        update.message.reply_text("Please choose one of the provided options.")
+
+# Основная функция для запуска бота
 def main() -> None:
     updater = Updater(telegram_token)
     dispatcher = updater.dispatcher
 
-    conv_handler = ConversationHandler(
-        entry_points=[CommandHandler('start', start)],
-        states={
-            SELECTING_TASK: [MessageHandler(Filters.text & ~Filters.command, select_task)],
-            SELECTING_TOPIC: [MessageHandler(Filters.text & ~Filters.command, topic_selected)],
-            SUBMITTING_ESSAY: [MessageHandler(Filters.text & ~Filters.command, lambda update, context: update.message.reply_text("Essay submission coming soon!"))],
-            CHECKING_TENSES: [MessageHandler(Filters.text & ~Filters.command, lambda update, context: update.message.reply_text("Tenses checking coming soon!"))]
-        },
-        fallbacks=[CommandHandler('start', start)],
-    )
-
-    dispatcher.add_handler(conv_handler)
+    dispatcher.add_handler(CommandHandler("start", start))
+    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
 
     updater.start_polling()
     updater.idle()
