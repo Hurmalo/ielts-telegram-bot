@@ -5,7 +5,7 @@ from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 
 # Установите ваши API ключи
-openai.api_key = "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"
+openai.api_key = "sk-sNBKzFK1pWW4skvq4CtIAbJOb_SKfEN3_7LZ0WTN8VT3BlbkFJr86mM7dK_zDvILQVVMirppcqtXl7yGxv7NeRlEHxIA"
 telegram_token = "7413264545:AAHjqKfNONUOxbWzI-D5YXqu2N59Kiqe_us"
 
 # Список тем IELTS
