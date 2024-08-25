@@ -230,6 +230,7 @@ def handle_tense_task_selection(update: Update, context: CallbackContext) -> Non
     except Exception as e:
         logging.error(f"Error in handle_tense_task_selection: {e}")
         update.message.reply_text("An error occurred while processing the tense practice task.")
+
 # Обработка упражнений по временам английского языка
 def handle_tense_task_selection(update: Update, context: CallbackContext) -> None:
     user_message = update.message.text
