@@ -230,71 +230,8 @@ def handle_tense_task_selection(update: Update, context: CallbackContext) -> Non
     except Exception as e:
         logging.error(f"Error in handle_tense_task_selection: {e}")
         update.message.reply_text("An error occurred while processing the tense practice task.")
-
-# Обработка упражнений по временам английского языка
-def handle_tense_task_selection(update: Update, context: CallbackContext) -> None:
-    user_message = update.message.text
-    logging.info(f"User selected tense practice task: {user_message}")
-    try:
-        if user_message == "Convert sentences to another tense":
-            response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": "Give a sentence and ask to convert it to another tense."},
-                    {"role": "user", "content": "Please provide a sentence to be converted to another tense."}
-                ]
-            )
-            task = response.choices[0].message['content'].strip()
-            update.message.reply_text(f"Task: {task}")
-        elif user_message == "Fill in the blanks with the correct verb form":
-            response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": "Create a sentence with a missing verb and ask to fill it in with the correct tense."},
-                    {"role": "user", "content": "Please create a fill-in-the-blank sentence.”}
-]
-)
-task = response.choices[0].message[‘content’].strip()
-update.message.reply_text(f”Task: {task}”)
-elif user_message == “Create a sentence using a given tense”:
-response = openai.ChatCompletion.create(
-model=“gpt-3.5-turbo”,
-messages=[
-{“role”: “system”, “content”: “Ask the user to create a sentence using the present perfect tense.”},
-{“role”: “user”, “content”: “Please create a sentence using the present perfect tense.”}
-]
-)
-task = response.choices[0].message[‘content’].strip()
-update.message.reply_text(f”Task: {task}”)
-elif user_message == “Choose the correct tense in context”:
-response = openai.ChatCompletion.create(
-model=“gpt-3.5-turbo”,
-messages=[
-{“role”: “system”, “content”: “Provide a sentence with multiple tense options and ask to choose the correct one.”},
-{“role”: “user”, “content”: “Please provide a sentence with multiple tense options.”}
-]
-)
-task = response.choices[0].message[‘content’].strip()
-update.message.reply_text(f”Task: {task}”)
-elif user_message == “Practice tenses in dialogues”:
-response = openai.ChatCompletion.create(
-model=“gpt-3.5-turbo”,
-messages=[
-{“role”: “system”, “content”: “Create a short dialogue with missing tenses and ask the user to complete it.”},
-{“role”: “user”, “content”: “Please create a short dialogue with missing tenses.”}
-]
-)
-task = response.choices[0].message[‘content’].strip()
-update.message.reply_text(f”Task: {task}”)
-else:
-logging.warning(f”Unknown tense practice task: {user_message}”)
-update.message.reply_text(“Please choose one of the provided options.”)
-except Exception as e:
-logging.error(f”Error in handle_tense_task_selection: {e}”)
-update.message.reply_text(“An error occurred while processing the tense practice task.”)
-
-Обработка всех текстовых сообщений
-
+        
+# Обработка всех текстовых сообщений
 def handle_message(update: Update, context: CallbackContext) -> None:
 user_message = update.message.text
 logging.info(f”Received message: {user_message}”)
