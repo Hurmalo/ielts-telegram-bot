@@ -6,7 +6,7 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, Callb
 
 # Set up your API keys
 openai.api_key = "OPENAI_API_KEY"
-telegram_token = "TELEGRAM_BOT_TOKEN"
+telegram_token = "7413264545:AAHjqKfNONUOxbWzI-D5YXqu2N59Kiqe_us"
 
 # Define states for conversation handler
 SELECTING_TASK, SELECTING_TOPIC, SUBMITTING_ESSAY, CHECKING_TENSES = range(4)
