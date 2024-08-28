@@ -235,6 +235,7 @@ def handle_tense_task_selection(update: Update, context: CallbackContext) -> Non
 def handle_message(update: Update, context: CallbackContext) -> None:
         
 user_message = update.message.text
+    
 logging.info(f"Received message: {user_message}")
 if user_message == "Select a topic for an essay":
     handle_topic_selection(update, context)
