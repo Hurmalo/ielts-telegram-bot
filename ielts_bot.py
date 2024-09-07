@@ -6,8 +6,8 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Mess
 from datetime import time
 
 # Set up your API keys
-openai.api_key = "YOUR_OPENAI_API_KEY"
-telegram_token = "YOUR_TELEGRAM_BOT_TOKEN"
+openai.api_key = "OPENAI_API_KEY"
+telegram_token = "TELEGRAM_BOT_TOKEN"
 
 # Logging setup
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
