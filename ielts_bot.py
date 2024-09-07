@@ -38,6 +38,8 @@ async def task_selection(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     await query.answer()
 
+    logger.info(f"User selected: {query.data}")
+
     if query.data == 'practice_writing':
         await writing_task(query)
     elif query.data == 'practice_tenses':
@@ -45,6 +47,8 @@ async def task_selection(update: Update, context: CallbackContext) -> None:
 
 # Writing task: Display IELTS topics and add back button
 async def writing_task(query) -> None:
+    logger.info("Displaying writing topics")
+    
     topics = [
         "Art", "Business & Money", "Communication & Personality", "Crime & Punishment", "Education",
         "Environment", "Family & Children", "Food & Diet", "Government", "Health", "Housing",
@@ -63,11 +67,14 @@ async def topic_chosen(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     topic = query.data.split("_")[1]  # Extract topic from callback data
 
+    logger.info(f"Topic selected: {topic}")
+    
     # Save the selected topic to user data
     context.user_data["selected_topic"] = topic
 
     await query.answer()
 
+    # Generate vocabulary and question for the selected topic
     vocab = await generate_vocabulary(topic)
     vocab_str = "\n".join(vocab)
     question = await generate_essay_question(topic)
@@ -91,6 +98,8 @@ async def topic_chosen(update: Update, context: CallbackContext) -> None:
 
 # Generate vocabulary based on the selected topic using OpenAI
 async def generate_vocabulary(topic: str) -> list:
+    logger.info(f"Generating vocabulary for topic: {topic}")
+    
     prompt = f"Generate 10 advanced vocabulary words related to the IELTS topic '{topic}'."
     response = openai.Completion.create(
         engine="text-davinci-003",
@@ -104,6 +113,8 @@ async def generate_vocabulary(topic: str) -> list:
 
 # Generate a specific IELTS-style question based on the selected topic
 async def generate_essay_question(topic: str) -> str:
+    logger.info(f"Generating essay question for topic: {topic}")
+    
     prompt = f"Generate an IELTS writing task related to the topic '{topic}'."
     response = openai.Completion.create(
         engine="text-davinci-003",
@@ -117,6 +128,8 @@ async def generate_essay_question(topic: str) -> str:
 
 # Go back to the main menu
 async def back_to_menu(update: Update, context: CallbackContext) -> None:
+    logger.info("Returning to main menu")
+    
     query = update.callback_query
     await query.answer()
     await start(update, context)
@@ -130,12 +143,16 @@ async def handle_essay_submission(update: Update, context: CallbackContext) -> N
         await update.message.reply_text("Please choose a topic before submitting your essay.")
         return
 
+    logger.info(f"Received essay for topic: {selected_topic}")
+    
     # Get feedback from OpenAI
     feedback = await get_essay_feedback(essay_text, selected_topic)
     await update.message.reply_text(feedback)
 
 # Get feedback using OpenAI (grammar, vocabulary, and content analysis)
 async def get_essay_feedback(essay: str, topic: str) -> str:
+    logger.info(f"Generating feedback for topic: {topic}")
+    
     prompt = (
         f"Analyze this IELTS essay based on the topic '{topic}'. "
         "Check for grammar, word count, and provide suggestions for improvement. "
@@ -153,6 +170,8 @@ async def get_essay_feedback(essay: str, topic: str) -> str:
 
 # Tense practice task
 async def tense_task(query) -> None:
+    logger.info("Generating tense practice task")
+    
     tense_prompts = [
         ("Present Simple", "He _____ (go) to the gym every day.", "Time marker: every day"),
         ("Past Continuous", "They _____ (watch) TV when the phone rang.", "Time marker: when the phone rang"),
