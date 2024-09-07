@@ -23,6 +23,10 @@ async def start(update: Update, context: CallbackContext) -> None:
         "2️⃣ Practice Tenses: I'll test your knowledge of English tenses with interactive exercises.\n"
     )
 
+    # Reset user data flags
+    context.user_data['is_writing'] = False
+    context.user_data['is_tense_practice'] = False
+
     # Keyboard with task options
     keyboard = [
         [InlineKeyboardButton("Practice Writing", callback_data='practice_writing')],
@@ -41,8 +45,12 @@ async def task_selection(update: Update, context: CallbackContext) -> None:
     logger.info(f"User selected: {query.data}")
 
     if query.data == 'practice_writing':
+        context.user_data['is_writing'] = True
+        context.user_data['is_tense_practice'] = False
         await writing_task(query)
     elif query.data == 'practice_tenses':
+        context.user_data['is_writing'] = False
+        context.user_data['is_tense_practice'] = True
         await tense_task(query)
 
 # Writing task: Display IELTS topics and add back button
@@ -84,6 +92,10 @@ async def topic_chosen(update: Update, context: CallbackContext) -> None:
         f"Essay Task: {question}\n"
         f"Word Count: Minimum 250 words\n"
         f"Useful Vocabulary:\n{vocab_str}\n\n"
+        "How to Write an IELTS Essay:\n"
+        "1. Introduction: Clearly state your position on the topic.\n"
+        "2. Body Paragraphs: Use 2-3 paragraphs to support your opinion.\n"
+        "3. Conclusion: Summarize your argument.\n"
         "Once you're done, submit your essay here."
     )
 
@@ -139,15 +151,28 @@ async def handle_essay_submission(update: Update, context: CallbackContext) -> N
     essay_text = update.message.text
     selected_topic = context.user_data.get("selected_topic")
 
-    if not selected_topic:
-        await update.message.reply_text("Please choose a topic before submitting your essay.")
-        return
+    # Check if the user is submitting an essay or tense practice answer
+    if context.user_data.get('is_writing'):
+        if not selected_topic:
+            await update.message.reply_text("Please choose a topic before submitting your essay.")
+            return
 
-    logger.info(f"Received essay for topic: {selected_topic}")
-    
-    # Get feedback from OpenAI
-    feedback = await get_essay_feedback(essay_text, selected_topic)
-    await update.message.reply_text(feedback)
+        logger.info(f"Received essay for topic: {selected_topic}")
+        
+        # Get feedback from OpenAI
+        feedback = await get_essay_feedback(essay_text, selected_topic)
+        await update.message.reply_text(feedback)
+    elif context.user_data.get('is_tense_practice'):
+        # Handle tense practice response
+        await handle_tense_response(update, context)
+
+# Handle tense practice response
+async def handle_tense_response(update: Update, context: CallbackContext) -> None:
+    answer = update.message.text
+    logger.info(f"User provided tense practice answer: {answer}")
+
+    # Here you can add any checks or validations needed for the tense practice exercise
+    await update.message.reply_text(f"Your answer '{answer}' has been recorded. Let's check it!")
 
 # Get feedback using OpenAI (grammar, vocabulary, and content analysis)
 async def get_essay_feedback(essay: str, topic: str) -> str:
@@ -208,7 +233,7 @@ def main():
     # Callback query handler for going back to main menu
     application.add_handler(CallbackQueryHandler(back_to_menu, pattern="back_to_menu"))
 
-    # Message handler for essay submission (any non-command text)
+    # Message handler for essay submission or tense response
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_essay_submission))
 
     # Error handler
@@ -217,5 +242,5 @@ def main():
     # Start the bot
     application.run_polling()
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
