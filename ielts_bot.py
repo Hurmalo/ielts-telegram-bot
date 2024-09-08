@@ -67,10 +67,13 @@ async def topic_chosen(update: Update, context: CallbackContext) -> None:
     
     try:
         # Call OpenAI API to generate vocabulary and essay question
+        logger.info("Calling OpenAI API for vocabulary and essay question generation...")
         vocab = await generate_vocabulary(topic)
         vocab_str = "\n".join(vocab)
 
         question = await generate_essay_question(topic)
+
+        logger.info(f"Received response from OpenAI. Vocabulary: {vocab}, Question: {question}")
 
         instructions = (
             f"Topic: {topic}\n\n"
