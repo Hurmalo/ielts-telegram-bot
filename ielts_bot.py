@@ -67,29 +67,35 @@ async def handle_topic_selection(update: Update, context: ContextTypes.DEFAULT_T
     except openai.error.OpenAIError as e:
         await update.message.reply_text(f"Error fetching data from OpenAI: {str(e)}")
 
-# Handle essay submission and send it to OpenAI for feedback
+# Function to handle essay submission
 async def submit_essay(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    essay_text = update.message.text  # The user's essay
+    user_message = update.message.text
 
-    # Construct the prompt for OpenAI to check the essay
-    prompt = f"Please provide detailed feedback on the following IELTS essay, checking for grammar, vocabulary, structure, and coherence:\n\n{essay_text}"
-
+    # Send essay to OpenAI for feedback
     try:
-        # Send the essay to OpenAI for feedback
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}]
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a helpful assistant providing detailed feedback on IELTS essays, focusing on grammar, vocabulary, structure, and cohesion."
+                },
+                {
+                    "role": "user",
+                    "content": f"Please provide feedback on the following essay: {user_message}"
+                }
+            ]
         )
 
-        # Extract feedback from the response
-        feedback = response.choices[0].message['content'].strip()
+        # Extract the response from OpenAI
+        feedback = response['choices'][0]['message']['content']
 
-        # Send the feedback to the user
-        await update.message.reply_text(f"Here is the feedback on your essay:\n\n{feedback}")
-
+        # Send feedback to user
+        await update.message.reply_text(f"Feedback on your essay:\n\n{feedback}")
+    
     except openai.error.OpenAIError as e:
-        # Error handling in case the API request fails
-        await update.message.reply_text(f"Error fetching feedback from OpenAI: {str(e)}")
+        # Handle errors related to OpenAI request
+        await update.message.reply_text(f"An error occurred while processing your essay: {str(e)}")
         
 # Tense Practice: Generates a fill-in-the-blanks task
 async def tense_practice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
