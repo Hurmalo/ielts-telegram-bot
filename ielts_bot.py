@@ -9,7 +9,7 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")
 
 # Define the URL where your bot will be accessible (for webhook)
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")
+WEBHOOK_URL = os.getenv("https://railway.app/project/c29fdd0b-175a-48f0-87a4-a3f98a9bf50b/service/d12d8dce-c9a3-4170-b317-82a45b1dd958?id=ad2862d6-ccc0-45a3-871e-9c003c29e742")
 
 # Logging setup
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
