@@ -4,7 +4,7 @@ from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler
 
 # Load API keys from environment variables
-TELEGRAM_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
 openai.api_key = OPENAI_API_KEY
@@ -20,8 +20,8 @@ topics = [
 ]
 
 # Function to generate OpenAI prompt for vocabulary words
-async def generate_vocabulary(topic):
-    response = await openai.ChatCompletion.create(
+def generate_vocabulary(topic):
+    response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[
             {"role": "system", "content": "You are an English language tutor helping a student prepare for IELTS."},
@@ -54,7 +54,7 @@ async def topic_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     context.user_data['topic'] = topic
 
     # Generate vocabulary words for the selected topic using OpenAI
-    vocabulary = await generate_vocabulary(topic)
+    vocabulary = generate_vocabulary(topic)
 
     await update.message.reply_text(f"Write an essay on the topic '{topic}'. Use the following words:\n{vocabulary}")
     await update.message.reply_text("The minimum length is 250 words. Submit your essay when ready.")
@@ -66,7 +66,7 @@ async def submit_essay(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     essay = update.message.text
 
     # Send the essay to OpenAI for feedback
-    response = await openai.ChatCompletion.create(
+    response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[
             {"role": "system", "content": "You are an IELTS essay grader."},
@@ -86,15 +86,15 @@ async def practice_tenses(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     context.user_data['task'] = 'tenses'
     
     # Generate tense exercise using OpenAI
-    tense_text = await generate_tense_exercise()
+    tense_text = generate_tense_exercise()
 
     await update.message.reply_text(f"Fill in the blanks with the correct verb forms and send your answers as a comma-separated list:\n\n{tense_text}")
 
     return TENSES
 
 # Generate tense exercise using OpenAI
-async def generate_tense_exercise():
-    response = await openai.ChatCompletion.create(
+def generate_tense_exercise():
+    response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[
             {"role": "system", "content": "You are an English grammar tutor."},
@@ -108,7 +108,7 @@ async def submit_tense_answers(update: Update, context: ContextTypes.DEFAULT_TYP
     answers = update.message.text
 
     # Send tense answers to OpenAI for correction
-    response = await openai.ChatCompletion.create(
+    response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[
             {"role": "system", "content": "You are an English grammar tutor."},
