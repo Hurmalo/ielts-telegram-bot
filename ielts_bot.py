@@ -1,90 +1,139 @@
-from telegram import Update, ReplyKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler
 import os
 import openai
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler
+import logging
 
-# Define stages of the conversation
-SELECTING_TASK, SELECTING_TOPIC, WRITING_ESSAY, PROVIDING_FEEDBACK = range(4)
+# API Keys from environment variables
+TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
-# Initialize API keys
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
-if not TELEGRAM_TOKEN:
-    raise ValueError("No TELEGRAM_TOKEN provided")
-if not OPENAI_API_KEY:
-    raise ValueError("No OPENAI_API_KEY provided")
-
+# Set OpenAI API key
 openai.api_key = OPENAI_API_KEY
 
-# Start command handler
+# Logging setup
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+
+# Conversation states
+WRITING, TENSES, ESSAY_SUBMISSION = range(3)
+
+# Start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     keyboard = [
-        ["Practice Writing"],
-        ["Practice Tenses"]
+        [KeyboardButton("Writing Practice"), KeyboardButton("Practice Tenses")]
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
-    await update.message.reply_text("Welcome to the IELTS Helper Bot! Choose a task:", reply_markup=reply_markup)
-    return SELECTING_TASK
+    
+    await update.message.reply_text(
+        "Welcome to the IELTS Helper Bot! You can either practice writing or tenses. Please choose one:",
+        reply_markup=reply_markup
+    )
+    
+    return WRITING
 
-# Task selection handler
-async def task_selection(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    user_choice = update.message.text
-    if user_choice == "Practice Writing":
-        # Show available topics for essay writing
-        keyboard = [[topic] for topic in ["Art", "Business", "Health", "Technology", "Tourism"]]
-        reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
-        await update.message.reply_text("Select a topic for your essay:", reply_markup=reply_markup)
-        return SELECTING_TOPIC
-    elif user_choice == "Practice Tenses":
-        await update.message.reply_text("Tense practice is not implemented yet.")
-        return SELECTING_TASK
+# Writing Practice: topic selection
+async def writing_practice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    topics = ["Tourism", "Technology", "Education", "Health", "Environment"]
+    keyboard = [[KeyboardButton(topic)] for topic in topics]
+    reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
 
-# Topic selection handler
-async def topic_selection(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    selected_topic = update.message.text
-    context.user_data['selected_topic'] = selected_topic
+    await update.message.reply_text("Select a topic for your writing:", reply_markup=reply_markup)
+    return WRITING
 
-    # Send instructions for the essay
-    await update.message.reply_text(f"Great! You selected {selected_topic}. Please write an essay (minimum 250 words).")
-    return WRITING_ESSAY
+# Generate 20 words and prompt for essay
+async def topic_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    user_topic = update.message.text
+    context.user_data['selected_topic'] = user_topic
+    
+    # OpenAI API call to generate 20 words
+    prompt = f"Generate 20 B1 level vocabulary words related to {user_topic}."
+    response = openai.Completion.create(
+        model="gpt-4o-mini",  # Updated model
+        prompt=prompt,
+        max_tokens=100
+    )
+    
+    generated_words = response.choices[0].text.strip()
+    context.user_data['generated_words'] = generated_words
+    
+    await update.message.reply_text(
+        f"Write an essay on the topic: {user_topic}. Your essay must include the following words: {generated_words}. Minimum 250 words."
+    )
+    
+    return ESSAY_SUBMISSION
 
-# Essay submission handler
-async def essay_submission(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+# Submit essay and get feedback
+async def submit_essay(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     user_essay = update.message.text
-    selected_topic = context.user_data['selected_topic']
-
-    # Call OpenAI to analyze the essay
-    response = openai.ChatCompletion.create(
-    model="gpt-4o-mini",  # Updated model
-    messages=[
-        {"role": "system", "content": "You are an IELTS essay evaluator."},
-        {"role": "user", "content": f"Analyze this essay:\n\n{user_essay}\n\nProvide feedback on grammar, vocabulary, structure, and coherence. Also point out any improvements."}
-    ],
-    max_tokens=200
-)
+    
+    # OpenAI API call for feedback
+    prompt = f"Analyze this essay:\n\n{user_essay}\n\nProvide feedback on grammar, vocabulary, structure, and cohesion."
+    response = openai.Completion.create(
+        model="gpt-4o-mini",
+        prompt=prompt,
+        max_tokens=300
+    )
     
     feedback = response.choices[0].text.strip()
-    await update.message.reply_text(f"Feedback for your essay on {selected_topic}:\n\n{feedback}")
+    await update.message.reply_text(f"Here is the feedback for your essay:\n\n{feedback}")
+    
+    return ConversationHandler.END
 
-    return SELECTING_TASK
+# Practice Tenses
+async def practice_tenses(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    sentences = [
+        "At this time tomorrow, we _____ (fly) to Japan.",
+        "By next year, they _____ (complete) the project."
+    ]
+    await update.message.reply_text(f"Fill in the blanks with the correct tense:\n{sentences[0]}")
+    
+    context.user_data['sentences'] = sentences
+    return TENSES
 
-# Main function to set up the bot and handlers
-def main():
+# Check tense practice
+async def check_tenses(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    user_answer = update.message.text.split(",")
+    
+    correct_answers = ["will be flying", "will have completed"]
+    
+    feedback = []
+    for i, answer in enumerate(user_answer):
+        if answer.strip() == correct_answers[i]:
+            feedback.append(f"Sentence {i+1}: Correct")
+        else:
+            feedback.append(f"Sentence {i+1}: Incorrect. Correct answer is {correct_answers[i]}")
+    
+    await update.message.reply_text("\n".join(feedback))
+    
+    return ConversationHandler.END
+
+# Start over with /start
+async def restart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    await start(update, context)
+
+# Error handling
+def error(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    logging.error(f"Update {update} caused error {context.error}")
+
+def main() -> None:
     application = Application.builder().token(TELEGRAM_TOKEN).build()
-
+    
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
         states={
-            SELECTING_TASK: [MessageHandler(filters.TEXT & ~filters.COMMAND, task_selection)],
-            SELECTING_TOPIC: [MessageHandler(filters.TEXT & ~filters.COMMAND, topic_selection)],
-            WRITING_ESSAY: [MessageHandler(filters.TEXT & ~filters.COMMAND, essay_submission)],
+            WRITING: [
+                MessageHandler(filters.Regex('^Writing Practice$'), writing_practice),
+                MessageHandler(filters.Regex('^Practice Tenses$'), practice_tenses),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, topic_selected)
+            ],
+            ESSAY_SUBMISSION: [MessageHandler(filters.TEXT & ~filters.COMMAND, submit_essay)],
+            TENSES: [MessageHandler(filters.TEXT & ~filters.COMMAND, check_tenses)]
         },
-        fallbacks=[CommandHandler('start', start)]
+        fallbacks=[CommandHandler('start', restart)]
     )
-
+    
     application.add_handler(conv_handler)
     application.run_polling()
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
