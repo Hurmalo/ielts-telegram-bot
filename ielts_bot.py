@@ -8,6 +8,9 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Mess
 openai.api_key = os.getenv("OPENAI_API_KEY")
 telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")
 
+# Define the URL where your bot will be accessible (for webhook)
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")
+
 # Logging setup
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -211,8 +214,13 @@ def main():
     # Message handler for essay submission
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_essay_submission))
 
-    # Start the bot
-    application.run_polling()
+    # Set up the webhook
+    application.run_webhook(
+        listen="0.0.0.0",
+        port=int(os.environ.get("PORT", 8443)),
+        url_path=telegram_token,
+        webhook_url=f"{WEBHOOK_URL}/{telegram_token}"
+    )
 
 if __name__ == '__main__':
     main()
