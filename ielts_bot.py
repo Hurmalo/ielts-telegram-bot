@@ -12,11 +12,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Initialize API keys from environment variables
-TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
+TELEGRAM_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
 if not TELEGRAM_TOKEN or not OPENAI_API_KEY:
-    raise ValueError("Missing TELEGRAM_TOKEN or OPENAI_API_KEY")
+    raise ValueError("Missing TELEGRAM_BOT_TOKEN or OPENAI_API_KEY")
 
 openai.api_key = OPENAI_API_KEY
 
