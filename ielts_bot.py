@@ -1,153 +1,163 @@
 import os
 import openai
-import logging
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
-from telegram.constants import ParseMode
+from telegram import Update, ReplyKeyboardMarkup
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler
 
-# Initialize logging
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
-)
-logger = logging.getLogger(__name__)
-
-# Initialize API keys from environment variables
+# Load API keys from environment variables
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
-if not TELEGRAM_TOKEN or not OPENAI_API_KEY:
-    raise ValueError("Missing TELEGRAM_BOT_TOKEN or OPENAI_API_KEY")
-
 openai.api_key = OPENAI_API_KEY
 
-# Start the bot and provide basic commands and setup
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    welcome_message = "Welcome to the IELTS Preparation Bot! Choose a task to start:\n1. Writing Practice 📝\n2. Tense Practice ⏳"
+# Conversation states
+WRITING, TENSES, SUBMITTING_ESSAY = range(3)
+
+# Writing topics
+topics = [
+    "Tourism", "Technology", "Education", "Health", "Environment", "Business", "Media", 
+    "Government", "Family", "Society", "Crime & Punishment", "Communication & Personality",
+    "Sport & Exercise", "Transport", "Work", "Art", "Language", "Housing", "Leisure", "Space Exploration"
+]
+
+# Function to generate OpenAI prompt for vocabulary words
+async def generate_vocabulary(topic):
+    response = await openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": "You are an English language tutor helping a student prepare for IELTS."},
+            {"role": "user", "content": f"Generate 20 vocabulary words for B1 level on the topic '{topic}'."}
+        ]
+    )
+    return response.choices[0].message['content']
+
+# Function to handle the start command
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     keyboard = [
-        [KeyboardButton("📝 Writing Practice"), KeyboardButton("⏳ Tense Practice")]
+        ["Writing Practice", "Practice Tenses"]
     ]
-    reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
+    reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
+
+    await update.message.reply_text("Welcome to the IELTS bot! Please choose a task:", reply_markup=reply_markup)
+    return WRITING
+
+# Writing practice: topic selection
+async def writing_practice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    keyboard = [[topic] for topic in topics]
+    reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
+
+    await update.message.reply_text("Please choose a topic for your essay:", reply_markup=reply_markup)
+    return WRITING
+
+# After topic selection, give essay instructions
+async def topic_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    topic = update.message.text
+    context.user_data['topic'] = topic
+
+    # Generate vocabulary words for the selected topic using OpenAI
+    vocabulary = await generate_vocabulary(topic)
+
+    await update.message.reply_text(f"Write an essay on the topic '{topic}'. Use the following words:\n{vocabulary}")
+    await update.message.reply_text("The minimum length is 250 words. Submit your essay when ready.")
+
+    return SUBMITTING_ESSAY
+
+# Handle essay submission
+async def submit_essay(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    essay = update.message.text
+
+    # Send the essay to OpenAI for feedback
+    response = await openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": "You are an IELTS essay grader."},
+            {"role": "user", "content": f"Please provide feedback on this IELTS essay:\n{essay}"}
+        ]
+    )
+    feedback = response.choices[0].message['content']
+
+    # Send feedback to the user
+    await update.message.reply_text(f"Thank you for submitting your essay! Here's your feedback:\n{feedback}")
     
-    await update.message.reply_text(welcome_message, reply_markup=reply_markup)
+    # Return to the main menu after essay feedback
+    return await start(update, context)
 
-# Function to handle errors
-async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    logger.error(msg="Exception while handling update:", exc_info=context.error)
-    await update.message.reply_text("Something went wrong. Please try again later.")
-
-# Writing Practice: topic selection
-async def writing_practice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    topics = [
-        "Tourism", "Technology", "Education", "Health", "Environment", 
-        "Family & Children", "Government", "Language", "Leisure", 
-        "Media & Advertising", "Society", "Space Exploration", "Sport & Exercise", 
-        "Transport", "Work", "Crime & Punishment", "Communication & Personality", 
-        "Housing & Urban Planning", "Food & Diet", "Business & Money"
-    ]
+# Tense practice function
+async def practice_tenses(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    context.user_data['task'] = 'tenses'
     
-    keyboard = [[KeyboardButton(topic)] for topic in topics]
-    reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
-    
-    await update.message.reply_text("Please select a topic for writing practice:", reply_markup=reply_markup)
+    # Generate tense exercise using OpenAI
+    tense_text = await generate_tense_exercise()
 
-# Handle topic selection, generate essay instructions
-async def handle_topic_selection(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    selected_topic = update.message.text
-    prompt = f"Generate 20 vocabulary words at a B1 level related to the topic '{selected_topic}'"
-    
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}]
-        )
-        vocabulary_words = response.choices[0].message['content'].strip()
-        essay_instruction = f"Write an essay on the topic '{selected_topic}'. Use the following 20 words:\n{vocabulary_words}\n\nMinimum length: 250 words."
-        
-        await update.message.reply_text(essay_instruction)
-    except openai.error.OpenAIError as e:
-        await update.message.reply_text(f"Error fetching data from OpenAI: {str(e)}")
+    await update.message.reply_text(f"Fill in the blanks with the correct verb forms and send your answers as a comma-separated list:\n\n{tense_text}")
 
-# Function to handle essay submission
-async def submit_essay(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user_message = update.message.text
+    return TENSES
 
-    # Send essay to OpenAI for feedback
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are a helpful assistant providing detailed feedback on IELTS essays, focusing on grammar, vocabulary, structure, and cohesion."
-                },
-                {
-                    "role": "user",
-                    "content": f"Please provide feedback on the following essay: {user_message}"
-                }
-            ]
-        )
+# Generate tense exercise using OpenAI
+async def generate_tense_exercise():
+    response = await openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": "You are an English grammar tutor."},
+            {"role": "user", "content": "Generate a tense exercise with blanks for students to fill in the correct verb forms."}
+        ]
+    )
+    return response.choices[0].message['content']
 
-        # Extract the response from OpenAI
-        feedback = response['choices'][0]['message']['content']
+# Handle tense answers
+async def submit_tense_answers(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    answers = update.message.text
 
-        # Send feedback to user
-        await update.message.reply_text(f"Feedback on your essay:\n\n{feedback}")
-    
-    except openai.error.OpenAIError as e:
-        # Handle errors related to OpenAI request
-        await update.message.reply_text(f"An error occurred while processing your essay: {str(e)}")
-        
-# Tense Practice: Generates a fill-in-the-blanks task
-async def tense_practice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    prompt = "Generate a fill-in-the-blank exercise focusing on verb tenses."
-    
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}]
-        )
-        tense_task = response.choices[0].message['content'].strip()
-        await update.message.reply_text(tense_task)
-        await update.message.reply_text("Fill in the blanks with the correct verb forms and send your answers as a comma-separated list.")
-    except openai.error.OpenAIError as e:
-        await update.message.reply_text(f"Error fetching data from OpenAI: {str(e)}")
+    # Send tense answers to OpenAI for correction
+    response = await openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": "You are an English grammar tutor."},
+            {"role": "user", "content": f"Correct these tense answers:\n{answers}"}
+        ]
+    )
+    feedback = response.choices[0].message['content']
 
-# Handle tense practice answers
-async def check_tense_answers(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user_answers = update.message.text
-    prompt = f"Check these answers for tense correctness:\n{user_answers}"
-    
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}]
-        )
-        feedback = response.choices[0].message['content'].strip()
-        await update.message.reply_text(f"Feedback on your answers:\n{feedback}")
-    except openai.error.OpenAIError as e:
-        await update.message.reply_text(f"Error fetching data from OpenAI: {str(e)}")
+    # Provide feedback on the tense exercise
+    await update.message.reply_text(f"Here is your feedback on the tense exercise:\n{feedback}")
 
+    # Return to the main menu after feedback
+    return await start(update, context)
+
+# Main function
 def main() -> None:
     application = Application.builder().token(TELEGRAM_TOKEN).build()
 
-    # Add command handlers
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(MessageHandler(filters.TEXT & filters.Regex("📝 Writing Practice"), writing_practice))
-    application.add_handler(MessageHandler(filters.TEXT & filters.Regex("⏳ Tense Practice"), tense_practice))
-    
-    # Add message handlers for essay and tense task submission
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_topic_selection))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, submit_essay))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_tense_answers))
+    # Conversation handler for writing practice
+    writing_conv_handler = ConversationHandler(
+        entry_points=[CommandHandler("start", start)],
+        states={
+            WRITING: [
+                MessageHandler(filters.Regex("^(Writing Practice)$"), writing_practice),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, topic_selected),
+            ],
+            SUBMITTING_ESSAY: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, submit_essay),
+            ]
+        },
+        fallbacks=[CommandHandler("start", start)],
+    )
 
-    # Error handler
-    application.add_error_handler(error_handler)
+    # Conversation handler for tense practice
+    tense_conv_handler = ConversationHandler(
+        entry_points=[MessageHandler(filters.Regex("^(Practice Tenses)$"), practice_tenses)],
+        states={
+            TENSES: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, submit_tense_answers),
+            ],
+        },
+        fallbacks=[CommandHandler("start", start)],
+    )
 
-    # Handler setup for essay submission (after the user submits the essay)
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, submit_essay))
+    application.add_handler(writing_conv_handler)
+    application.add_handler(tense_conv_handler)
 
-   # Start polling
-    application.run_polling()  # Make sure this line is correctly indented
+    # Start the bot
+    application.run_polling()
 
 if __name__ == "__main__":
     main()
