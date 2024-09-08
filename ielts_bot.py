@@ -1,7 +1,6 @@
 import logging
 import openai
 import os
-import random
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, CallbackContext
 
@@ -76,13 +75,16 @@ async def topic_chosen(update: Update, context: CallbackContext) -> None:
     topic = query.data.split("_")[1]  # Extract topic from callback data
 
     logger.info(f"Topic selected: {topic}")
-    
+
     # Save the selected topic to user data
     context.user_data["selected_topic"] = topic
 
     await query.answer()
 
     try:
+        # Logging when starting vocabulary and question generation
+        logger.info(f"Generating vocabulary and essay task for topic: {topic}")
+
         # Generate vocabulary and question for the selected topic
         vocab = await generate_vocabulary(topic)
         vocab_str = "\n".join(vocab)
@@ -100,6 +102,9 @@ async def topic_chosen(update: Update, context: CallbackContext) -> None:
             "Once you're done, submit your essay here."
         )
 
+        # Logging when instructions are successfully generated
+        logger.info(f"Instructions generated for topic: {topic}")
+
         # Display instructions with useful vocabulary and question
         keyboard = [[InlineKeyboardButton("Back to Main Menu", callback_data='back_to_menu')]]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -108,8 +113,10 @@ async def topic_chosen(update: Update, context: CallbackContext) -> None:
             text=instructions,
             reply_markup=reply_markup
         )
+
     except Exception as e:
-        logger.error(f"Error generating vocabulary or essay question: {e}")
+        # Logging in case of an error
+        logger.error(f"Error generating vocabulary or essay question for topic {topic}: {e}")
         await query.edit_message_text("Sorry, there was an error generating the task. Please try again later.")
 
 # Generate vocabulary based on the selected topic using OpenAI
@@ -128,7 +135,7 @@ async def generate_vocabulary(topic: str) -> list:
         vocabulary = response.choices[0].text.strip().split("\n")
         return vocabulary
     except Exception as e:
-        logger.error(f"Error generating vocabulary: {e}")
+        logger.error(f"Error generating vocabulary for topic {topic}: {e}")
         raise e
 
 # Generate a specific IELTS-style question based on the selected topic
@@ -147,7 +154,7 @@ async def generate_essay_question(topic: str) -> str:
         question = response.choices[0].text.strip()
         return question
     except Exception as e:
-        logger.error(f"Error generating essay question: {e}")
+        logger.error(f"Error generating essay question for topic {topic}: {e}")
         raise e
 
 # Go back to the main menu
@@ -182,56 +189,8 @@ async def handle_essay_submission(update: Update, context: CallbackContext) -> N
 async def handle_tense_response(update: Update, context: CallbackContext) -> None:
     answer = update.message.text
     logger.info(f"User provided tense practice answer: {answer}")
-
-    # Here you can add any checks or validations needed for the tense practice exercise
-    await update.message.reply_text(f"Your answer '{answer}' has been recorded. Let's check it!")
-
-# Get feedback using OpenAI (grammar, vocabulary, and content analysis)
-async def get_essay_feedback(essay: str, topic: str) -> str:
-    logger.info(f"Generating feedback for topic: {topic}")
     
-    prompt = (
-        f"Analyze this IELTS essay based on the topic '{topic}'. "
-        "Check for grammar, word count, and provide suggestions for improvement. "
-        "Also, check if the essay uses the following vocabulary: "
-        f"{', '.join(await generate_vocabulary(topic))}"
-    )
-    try:
-        response = openai.Completion.create(
-            engine="text-davinci-003",
-            prompt=prompt,
-            max_tokens=300,
-            temperature=0.7
-        )
-        feedback = response.choices[0].text.strip()
-        return feedback
-    except Exception as e:
-        logger.error(f"Error generating feedback: {e}")
-        return "There was an error generating feedback. Please try again later."
-
-# Tense practice task
-async def tense_task(query) -> None:
-    logger.info("Generating tense practice task")
-    
-    tense_prompts = [
-        ("Present Simple", "He _____ (go) to the gym every day.", "Time marker: every day"),
-        ("Past Continuous", "They _____ (watch) TV when the phone rang.", "Time marker: when the phone rang"),
-        ("Future Perfect", "By next year, she _____ (complete) the course.", "Time marker: By next year"),
-        ("Present Perfect", "They _____ (live) in New York for 10 years.", "Time marker: for 10 years"),
-        ("Past Perfect", "She _____ (finish) her homework before the movie started.", "Time marker: before"),
-        ("Future Continuous", "At this time tomorrow, we _____ (fly) to Japan.", "Time marker: At this time tomorrow"),
-    ]
-
-    tense, sentence, marker = random.choice(tense_prompts)
-
-    await query.edit_message_text(
-        f"Tense: {tense}\nComplete the sentence: {sentence}\n{marker}\n\n"
-        "Use the verb in the correct tense form based on the time marker."
-    )
-
-# Error handler
-async def error(update: Update, context: CallbackContext) -> None:
-    logger.warning(f'Update {update} caused error {context.error}')
+    # TODO: Add OpenAI check for tense practice answers
 
 # Finalizing the bot by integrating all parts
 def main():
@@ -251,9 +210,6 @@ def main():
 
     # Message handler for essay submission or tense response
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_essay_submission))
-
-    # Error handler
-    application.add_error_handler(error)
 
     # Start the bot
     application.run_polling()
