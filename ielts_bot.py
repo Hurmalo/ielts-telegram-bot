@@ -5,11 +5,8 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, CallbackContext
 
 # Set your OpenAI API key and Telegram bot token using environment variables
-openai.api_key = os.getenv("OPENAI_API_KEY")
-telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")
-
-# Define the URL where your bot will be accessible (for webhook)
-WEBHOOK_URL = os.getenv("https://railway.app/project/c29fdd0b-175a-48f0-87a4-a3f98a9bf50b/service/d12d8dce-c9a3-4170-b317-82a45b1dd958?id=ad2862d6-ccc0-45a3-871e-9c003c29e742")
+openai.api_key = os.getenv("OPENAI_API_KEY")  # Fetch OpenAI API key from environment variables
+telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")  # Fetch Telegram bot token from environment variables
 
 # Logging setup
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
@@ -214,13 +211,8 @@ def main():
     # Message handler for essay submission
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_essay_submission))
 
-    # Set up the webhook
-    application.run_webhook(
-        listen="0.0.0.0",
-        port=int(os.environ.get("PORT", 8443)),
-        url_path=telegram_token,
-        webhook_url=f"{WEBHOOK_URL}/{telegram_token}"
-    )
+    # Polling mechanism
+    application.run_polling()
 
 if __name__ == '__main__':
     main()
