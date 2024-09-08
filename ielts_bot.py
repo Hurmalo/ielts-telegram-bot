@@ -67,21 +67,30 @@ async def handle_topic_selection(update: Update, context: ContextTypes.DEFAULT_T
     except openai.error.OpenAIError as e:
         await update.message.reply_text(f"Error fetching data from OpenAI: {str(e)}")
 
-# Handle essay submission
+# Handle essay submission and send it to OpenAI for feedback
 async def submit_essay(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    essay_text = update.message.text
-    prompt = f"Check this IELTS essay for grammar, vocabulary, and structure:\n{essay_text}"
-    
+    essay_text = update.message.text  # The user's essay
+
+    # Construct the prompt for OpenAI to check the essay
+    prompt = f"Please provide detailed feedback on the following IELTS essay, checking for grammar, vocabulary, structure, and coherence:\n\n{essay_text}"
+
     try:
+        # Send the essay to OpenAI for feedback
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": prompt}]
         )
-        feedback = response.choices[0].message['content'].strip()
-        await update.message.reply_text(f"Feedback on your essay:\n{feedback}")
-    except openai.error.OpenAIError as e:
-        await update.message.reply_text(f"Error fetching data from OpenAI: {str(e)}")
 
+        # Extract feedback from the response
+        feedback = response.choices[0].message['content'].strip()
+
+        # Send the feedback to the user
+        await update.message.reply_text(f"Here is the feedback on your essay:\n\n{feedback}")
+
+    except openai.error.OpenAIError as e:
+        # Error handling in case the API request fails
+        await update.message.reply_text(f"Error fetching feedback from OpenAI: {str(e)}")
+        
 # Tense Practice: Generates a fill-in-the-blanks task
 async def tense_practice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     prompt = "Generate a fill-in-the-blank exercise focusing on verb tenses."
@@ -127,6 +136,9 @@ def main() -> None:
 
     # Error handler
     application.add_error_handler(error_handler)
+
+    # Handler setup for essay submission (after the user submits the essay)
+application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, submit_essay))
 
     # Start polling
     application.run_polling()
