@@ -162,36 +162,6 @@ async def tense_task(query) -> None:
 
     await query.edit_message_text(text=instructions, reply_markup=reply_markup)
 
-# Handle essay submission: Accept essay text and provide feedback using OpenAI
-async def handle_essay_submission(update: Update, context: CallbackContext) -> None:
-    user_essay = update.message.text
-    logger.info(f"Received essay submission: {user_essay}")
-
-    # Send the essay to OpenAI for grammar, style, and spelling correction
-    try:
-        prompt = (
-            f"Provide feedback and corrections for the following IELTS essay:\n\n"
-            f"{user_essay}\n\n"
-            "Correct any grammar, spelling, and style mistakes, and provide a summary of the feedback."
-        )
-
-        response = openai.Completion.create(
-            engine="text-davinci-003",
-            prompt=prompt,
-            max_tokens=300,
-            temperature=0.6
-        )
-
-        feedback = response.choices[0].text.strip()
-
-        await update.message.reply_text(
-            f"Here is the feedback on your essay:\n\n{feedback}",
-            parse_mode="Markdown"
-        )
-    except Exception as e:
-        logger.error(f"Error processing essay submission: {e}")
-        await update.message.reply_text("Sorry, there was an error processing your essay. Please try again later.")
-
 # Finalizing the bot by integrating all parts
 def main():
     application = Application.builder().token(telegram_token).build()
@@ -207,9 +177,6 @@ def main():
 
     # Callback query handler for going back to main menu
     application.add_handler(CallbackQueryHandler(start, pattern="back_to_menu"))
-
-    # Message handler for essay submission
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_essay_submission))
 
     # Polling mechanism
     application.run_polling()
