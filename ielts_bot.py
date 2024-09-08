@@ -1,11 +1,12 @@
 import logging
+import os  # Add this line to import the os module
 import openai
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, CallbackContext
 
-# Access the API keys from environment variables
-openai.api_key = os.getenv("OPENAI_API_KEY")
-telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")
+# Set your OpenAI API key and Telegram bot token using environment variables
+openai.api_key = os.getenv("OPENAI_API_KEY")  # Ensure you have set the environment variable for OPENAI_API_KEY
+telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")  # Ensure you have set the environment variable for TELEGRAM_BOT_TOKEN
 
 # Logging setup
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
