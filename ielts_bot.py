@@ -88,7 +88,10 @@ async def topic_chosen(update: Update, context: CallbackContext) -> None:
         # Generate vocabulary and question for the selected topic
         vocab = await generate_vocabulary(topic)
         vocab_str = "\n".join(vocab)
+        logger.info(f"Vocabulary generated for {topic}: {vocab}")
+
         question = await generate_essay_question(topic)
+        logger.info(f"Essay question generated for {topic}: {question}")
 
         instructions = (
             f"Topic: {topic}\n\n"
@@ -136,6 +139,25 @@ async def generate_vocabulary(topic: str) -> list:
         return vocabulary
     except Exception as e:
         logger.error(f"Error generating vocabulary for topic {topic}: {e}")
+        raise e
+
+# Generate a specific IELTS-style question based on the selected topic
+async def generate_essay_question(topic: str) -> str:
+    logger.info(f"Generating essay question for topic: {topic}")
+    
+    try:
+        prompt = f"Generate an IELTS writing task related to the topic '{topic}'."
+        response = openai.Completion.create(
+            engine="text-davinci-003",
+            prompt=prompt,
+            max_tokens=100,
+            n=1,
+            temperature=0.7
+        )
+        question = response.choices[0].text.strip()
+        return question
+    except Exception as e:
+        logger.error(f"Error generating essay question for topic {topic}: {e}")
         raise e
 
 # Generate a specific IELTS-style question based on the selected topic
