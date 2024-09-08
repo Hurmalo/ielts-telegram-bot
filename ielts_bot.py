@@ -1,12 +1,12 @@
 import logging
-import os  # Add this line to import the os module
+import os
 import openai
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, CallbackContext
 
 # Set your OpenAI API key and Telegram bot token using environment variables
-openai.api_key = os.getenv("OPENAI_API_KEY")  # Ensure you have set the environment variable for OPENAI_API_KEY
-telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")  # Ensure you have set the environment variable for TELEGRAM_BOT_TOKEN
+openai.api_key = os.getenv("OPENAI_API_KEY")
+telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")
 
 # Logging setup
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
@@ -67,11 +67,17 @@ async def topic_chosen(update: Update, context: CallbackContext) -> None:
     logger.info(f"Topic selected: {topic}")
 
     try:
+        # Log before OpenAI API call
+        logger.info(f"Calling OpenAI to generate vocabulary for topic: {topic}")
+
         # Generate vocabulary and question for the selected topic
         vocab = await generate_vocabulary(topic)
         vocab_str = "\n".join(vocab)
 
+        logger.info(f"Generated vocabulary: {vocab_str}")
+
         question = await generate_essay_question(topic)
+        logger.info(f"Generated essay question: {question}")
 
         instructions = (
             f"Topic: {topic}\n\n"
