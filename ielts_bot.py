@@ -122,7 +122,7 @@ async def check_tense_answers(update: Update, context: ContextTypes.DEFAULT_TYPE
         await update.message.reply_text(f"Error fetching data from OpenAI: {str(e)}")
 
 def main() -> None:
-    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+    application = Application.builder().token(TELEGRAM_TOKEN).build()
 
     # Add command handlers
     application.add_handler(CommandHandler("start", start))
