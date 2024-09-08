@@ -138,10 +138,10 @@ def main() -> None:
     application.add_error_handler(error_handler)
 
     # Handler setup for essay submission (after the user submits the essay)
-application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, submit_essay))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, submit_essay))
 
-    # Start polling
-    application.run_polling()
+   # Start polling
+    application.run_polling()  # Make sure this line is correctly indented
 
 if __name__ == "__main__":
     main()
