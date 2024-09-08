@@ -55,11 +55,14 @@ async def essay_submission(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     selected_topic = context.user_data['selected_topic']
 
     # Call OpenAI to analyze the essay
-    response = openai.Completion.create(
-        model="text-davinci-003",
-        prompt=f"Analyze this essay on {selected_topic}:\n\n{user_essay}",
-        max_tokens=200
-    )
+    response = openai.ChatCompletion.create(
+    model="gpt-4o-mini",  # Updated model
+    messages=[
+        {"role": "system", "content": "You are an IELTS essay evaluator."},
+        {"role": "user", "content": f"Analyze this essay:\n\n{user_essay}\n\nProvide feedback on grammar, vocabulary, structure, and coherence. Also point out any improvements."}
+    ],
+    max_tokens=200
+)
     
     feedback = response.choices[0].text.strip()
     await update.message.reply_text(f"Feedback for your essay on {selected_topic}:\n\n{feedback}")
