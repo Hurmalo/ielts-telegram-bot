@@ -1,114 +1,87 @@
-import logging
+from telegram import Update, ReplyKeyboardMarkup
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler
+import os
 import openai
-from telegram import Update
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-# Define your API keys (assumed as environment variables)
-telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")
-openai.api_key = os.getenv("OPENAI_API_KEY")
+# Define stages of the conversation
+SELECTING_TASK, SELECTING_TOPIC, WRITING_ESSAY, PROVIDING_FEEDBACK = range(4)
 
-# Enable logging
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Initialize API keys
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-# List of writing topics
-writing_topics = [
-    "Art", "Business & Money", "Communication & Personality", "Crime & Punishment",
-    "Education", "Environment", "Family & Children", "Food & Diet", "Government", "Health",
-    "Housing, Buildings & Urban Planning", "Language", "Leisure", "Media & Advertising",
-    "Reading", "Society", "Space Exploration", "Sport & Exercise", "Technology", "Tourism and Travel", 
-    "Transport", "Work"
-]
+if not TELEGRAM_TOKEN:
+    raise ValueError("No TELEGRAM_TOKEN provided")
+if not OPENAI_API_KEY:
+    raise ValueError("No OPENAI_API_KEY provided")
 
-# Function to handle the /start command
-async def start(update: Update, context):
+openai.api_key = OPENAI_API_KEY
+
+# Start command handler
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     keyboard = [
-        [InlineKeyboardButton("Practice Writing", callback_data="practice_writing")],
-        [InlineKeyboardButton("Practice Tenses", callback_data="practice_tenses")]
+        ["Practice Writing"],
+        ["Practice Tenses"]
     ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("Welcome! Choose an option:", reply_markup=reply_markup)
+    reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
+    await update.message.reply_text("Welcome to the IELTS Helper Bot! Choose a task:", reply_markup=reply_markup)
+    return SELECTING_TASK
 
-# Function to handle task selection (writing or tenses)
-async def task_selection(update: Update, context):
-    query = update.callback_query
-    await query.answer()
+# Task selection handler
+async def task_selection(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    user_choice = update.message.text
+    if user_choice == "Practice Writing":
+        # Show available topics for essay writing
+        keyboard = [[topic] for topic in ["Art", "Business", "Health", "Technology", "Tourism"]]
+        reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
+        await update.message.reply_text("Select a topic for your essay:", reply_markup=reply_markup)
+        return SELECTING_TOPIC
+    elif user_choice == "Practice Tenses":
+        await update.message.reply_text("Tense practice is not implemented yet.")
+        return SELECTING_TASK
 
-    if query.data == "practice_writing":
-        logger.info("User selected: practice_writing")
-        await display_writing_topics(query)
-    elif query.data == "practice_tenses":
-        logger.info("User selected: practice_tenses")
-        await generate_tense_task(query)
+# Topic selection handler
+async def topic_selection(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    selected_topic = update.message.text
+    context.user_data['selected_topic'] = selected_topic
 
-# Function to display writing topics
-async def display_writing_topics(query):
-    keyboard = [[InlineKeyboardButton(topic, callback_data=f"topic_{topic}")] for topic in writing_topics]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await query.edit_message_text("Please choose a writing topic:", reply_markup=reply_markup)
+    # Send instructions for the essay
+    await update.message.reply_text(f"Great! You selected {selected_topic}. Please write an essay (minimum 250 words).")
+    return WRITING_ESSAY
 
-# Function to handle chosen writing topic
-async def topic_chosen(update: Update, context):
-    query = update.callback_query
-    await query.answer()
+# Essay submission handler
+async def essay_submission(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    user_essay = update.message.text
+    selected_topic = context.user_data['selected_topic']
 
-    topic = query.data.split("_")[1]
-    logger.info(f"User selected: {topic}")
-
-    # Generate essay instructions using OpenAI
-    essay_instructions = await generate_essay_instructions(topic)
-
-    # Send essay instructions
-    await query.edit_message_text(f"Write an essay on the topic: {topic}\n\n"
-                                  f"Instructions: {essay_instructions}")
-
-# Function to generate essay instructions using OpenAI
-async def generate_essay_instructions(topic):
-    try:
-        response = openai.Completion.create(
-            model="text-davinci-003",
-            prompt=f"Provide instructions for writing an essay on the topic {topic} suitable for IELTS preparation.",
-            max_tokens=150
-        )
-        return response.choices[0].text.strip()
-    except Exception as e:
-        logger.error(f"Error generating essay instructions: {e}")
-        return "Sorry, I couldn't generate the instructions."
-
-# Tense practice task
-async def tense_task(query) -> None:
-    logger.info("Generating tense practice task")
-
-    tense_question = (
-        "Tense: Future Continuous\n"
-        "Complete the sentence: At this time tomorrow, we _____ (fly) to Japan."
+    # Call OpenAI to analyze the essay
+    response = openai.Completion.create(
+        model="text-davinci-003",
+        prompt=f"Analyze this essay on {selected_topic}:\n\n{user_essay}",
+        max_tokens=200
     )
     
-    keyboard = [[InlineKeyboardButton("Back to Main Menu", callback_data='back_to_menu')]]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    feedback = response.choices[0].text.strip()
+    await update.message.reply_text(f"Feedback for your essay on {selected_topic}:\n\n{feedback}")
 
-    await query.edit_message_text(tense_question, reply_markup=reply_markup)
+    return SELECTING_TASK
 
-# Main function to set up handlers and run the bot
+# Main function to set up the bot and handlers
 def main():
-    application = Application.builder().token(telegram_token).build()
+    application = Application.builder().token(TELEGRAM_TOKEN).build()
 
-    # Command handler for /start
-    application.add_handler(CommandHandler("start", start))
+    conv_handler = ConversationHandler(
+        entry_points=[CommandHandler('start', start)],
+        states={
+            SELECTING_TASK: [MessageHandler(filters.TEXT & ~filters.COMMAND, task_selection)],
+            SELECTING_TOPIC: [MessageHandler(filters.TEXT & ~filters.COMMAND, topic_selection)],
+            WRITING_ESSAY: [MessageHandler(filters.TEXT & ~filters.COMMAND, essay_submission)],
+        },
+        fallbacks=[CommandHandler('start', start)]
+    )
 
-    # Callback query handler for task selection
-    application.add_handler(CallbackQueryHandler(task_selection))
-
-    # Callback query handler for topic selection
-    application.add_handler(CallbackQueryHandler(topic_chosen, pattern="topic_"))
-
-    # Callback query handler for back to menu
-    application.add_handler(CallbackQueryHandler(start, pattern="back_to_menu"))
-
-    # Run the bot using polling
+    application.add_handler(conv_handler)
     application.run_polling()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
